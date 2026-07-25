@@ -1,6 +1,6 @@
 import os
 import json
-import datetime
+import time
 import psycopg2
 import numpy as np
 from PIL import Image
@@ -8,7 +8,7 @@ import streamlit as st
 from ultralytics import YOLO
 
 # ---------------------------------------------------------
-# Leitura manual do .env sem precisar do python-dotenv
+# Leitura manual do .env sem precisar de dependências extras
 # ---------------------------------------------------------
 if os.path.exists(".env"):
     with open(".env", "r", encoding="utf-8") as f:
@@ -37,20 +37,30 @@ def load_segmentation_model():
 model = load_segmentation_model()
 
 # ---------------------------------------------------------
-# Funções de Banco de Dados (Neon.tech)
+# Funções de Banco de Dados (Neon.tech com Tratamento de Cold-Start)
 # ---------------------------------------------------------
 def get_db_connection(connection_string):
-    # Trata a URL para garantir modo Direto e SSL no Neon.tech
+    # 1. Trata a URL para remover o pooler e ajustar prefixos
     clean_url = connection_string.replace("-pooler.", ".")
-    
+    if clean_url.startswith("postgres://"):
+        clean_url = clean_url.replace("postgres://", "postgresql://", 1)
+        
+    # 2. Garante que o sslmode=require está presente na URL
     if "sslmode=" not in clean_url:
-        if "?" in clean_url:
-            clean_url += "&sslmode=require"
-        else:
-            clean_url += "?sslmode=require"
-            
-    conn = psycopg2.connect(clean_url)
-    return conn
+        separator = "&" if "?" in clean_url else "?"
+        clean_url = f"{clean_url}{separator}sslmode=require"
+
+    # 3. Lógica de Tentativas (Resolve a suspensão automática do Neon.tech)
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            conn = psycopg2.connect(clean_url)
+            return conn
+        except psycopg2.OperationalError as e:
+            if attempt < max_retries - 1:
+                time.sleep(2)  # Aguarda 2 segundos para o banco acordar
+            else:
+                raise e
 
 def init_db(connection_string):
     conn = get_db_connection(connection_string)
@@ -85,23 +95,18 @@ def save_analysis_to_db(connection_string, filename, width, height, channels, fi
     conn.close()
 
 # ---------------------------------------------------------
-# Interface Gráfica - Sidebar (Configurações do Banco)
+# Obtenção da String do Banco (.env ou Render OS Environment)
 # ---------------------------------------------------------
-st.sidebar.title("⚙️ Configurações do Banco")
-env_db_url = os.environ.get("DATABASE_URL", "")
-
-db_url = st.sidebar.text_input(
-    "String de Conexão Neon.tech (PostgreSQL):",
-    value=env_db_url,
-    type="password",
-    help="Exemplo: postgresql://user:password@ep-cool-name.us-east-2.aws.neon.tech/neondb?sslmode=require"
-)
+db_url = os.environ.get("DATABASE_URL", "")
 
 # ---------------------------------------------------------
 # Interface Gráfica - Painel Principal
 # ---------------------------------------------------------
 st.title("👁️ Sistema de Segmentação de Imagens e Metadados")
 st.write("Faça upload de uma imagem, processe com IA leve (YOLOv8) e grave os dados diretamente na nuvem (Neon.tech).")
+
+if not db_url:
+    st.warning("⚠️ `DATABASE_URL` não foi encontrada no arquivo `.env` nem nas variáveis de ambiente.")
 
 uploaded_file = st.file_uploader("Escolha uma imagem (JPG, JPEG, PNG)...", type=["jpg", "jpeg", "png"])
 
@@ -123,11 +128,12 @@ if uploaded_file is not None:
     # Botão de Execução
     if st.button("🚀 Processar Imagem", type="primary"):
         if not db_url:
-            st.error("❌ Por favor, forneça a String de Conexão do Neon.tech no menu lateral ou defina a variável DATABASE_URL no Render.")
+            st.error("❌ A variável `DATABASE_URL` precisa estar configurada no arquivo `.env` ou nas variáveis do servidor.")
         else:
             try:
                 # 1. Inicializar tabela no Neon.tech se necessário
-                init_db(db_url)
+                with st.spinner("Conectando ao banco de dados Neon.tech..."):
+                    init_db(db_url)
 
                 # 2. Executar Segmentação com YOLOv8
                 with st.spinner("Processando segmentação com visão computacional..."):
@@ -160,16 +166,17 @@ if uploaded_file is not None:
                 total_objects = sum(detected_counts.values())
 
                 # 4. Gravar Dados no Neon.tech
-                save_analysis_to_db(
-                    connection_string=db_url,
-                    filename=uploaded_file.name,
-                    width=width,
-                    height=height,
-                    channels=channels,
-                    file_size_kb=file_size_kb,
-                    detected_objects=objects_summary,
-                    total_objects=total_objects
-                )
+                with st.spinner("Salvando resultados no banco de dados..."):
+                    save_analysis_to_db(
+                        connection_string=db_url,
+                        filename=uploaded_file.name,
+                        width=width,
+                        height=height,
+                        channels=channels,
+                        file_size_kb=file_size_kb,
+                        detected_objects=objects_summary,
+                        total_objects=total_objects
+                    )
 
                 st.success("✅ Processamento concluído e dados salvos no Neon.tech com sucesso!")
                 st.divider()
