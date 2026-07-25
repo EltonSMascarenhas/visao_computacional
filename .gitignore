@@ -1,0 +1,40 @@
+# ==========================================
+# SEGREDOS E VARIÁVEIS DE AMBIENTE (NUNCA SUBIR!)
+# ==========================================
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# ==========================================
+# AMBIENTES VIRTUAIS E CACHE DO PYTHON
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Pastas de ambiente virtual (caso crie alguma)
+.venv/
+venv/
+env/
+ENV/
+
+# ==========================================
+# ARTEFATOS DO YOLO / ULTRALYTICS
+# ==========================================
+# Impede o envio dos pesos baixados ou das pastas de treino
+*.pt
+runs/
+datasets/
+
+# ==========================================
+# CONFIGURAÇÕES DE IDES E SISTEMA OPERACIONAL
+# ==========================================
+.vscode/
+.idea/
+*.swp
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
