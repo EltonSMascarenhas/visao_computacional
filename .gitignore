@@ -1,40 +1,42 @@
 # ==========================================
-# SEGREDOS E VARIÁVEIS DE AMBIENTE (NUNCA SUBIR!)
+# SEGURANÇA (NUNCA SUBA ESTES ARQUIVOS)
 # ==========================================
 .env
-.env.*
-!.env.example
 .streamlit/secrets.toml
 
 # ==========================================
-# AMBIENTES VIRTUAIS E CACHE DO PYTHON
+# Ambientes Virtuais (Virtual Environments)
+# ==========================================
+venv/
+env/
+.venv/
+env.bak/
+venv.bak/
+
+# ==========================================
+# Cache e Bytecode do Python
 # ==========================================
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-
-# Pastas de ambiente virtual (caso crie alguma)
-.venv/
-venv/
-env/
-ENV/
+.pytest_cache/
 
 # ==========================================
-# ARTEFATOS DO YOLO / ULTRALYTICS
+# YOLOv8 e Visão Computacional (Outputs)
 # ==========================================
-# Impede o envio dos pesos baixados ou das pastas de treino
-*.pt
 runs/
-datasets/
+# *.pt  
 
 # ==========================================
-# CONFIGURAÇÕES DE IDES E SISTEMA OPERACIONAL
+# Logs e Bancos de Dados Locais
 # ==========================================
-.vscode/
-.idea/
-*.swp
+*.log
+*.sqlite
+*.db
+*.sqlite3
 
-# Arquivos do sistema
+# ==========================================
+# Arquivos de Sistema Operacional
+# ==========================================
 .DS_Store
 Thumbs.db
